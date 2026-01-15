@@ -108,11 +108,11 @@ extract_druhy_robust <- function(text, sitecode) {
     # A) IZOLACE
     if (str_detect(clean_txt, "není izolovaná")) {
       izol <- "populace není izolovaná"
-    } else if (str_detect(clean_txt, "je izolovaná")) {
+    } else if (str_detect(clean_txt, "populace je")) {
       izol <- "populace je izolovaná"
     } else if (str_detect(clean_txt, "okraj")) {
       izol <- "populace na okraji areálu"
-    } else if (str_detect(clean_txt, "populace není izolovaná, leží uvnitř areálu rozšíření druhu")) {
+    } else if (str_detect(clean_txt, "populace není")) {
       izol <- "populace není izolovaná, leží uvnitř areálu rozšíření druhu"
     }
     
