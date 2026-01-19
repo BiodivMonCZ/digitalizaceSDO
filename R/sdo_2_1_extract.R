@@ -1,6 +1,4 @@
-
 # SKRIPT PRO HROMADNOU EXTRAKCI DAT Z SDO (PDF)
-
 
 library(pdftools)
 library(stringr)
