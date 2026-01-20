@@ -1,24 +1,4 @@
-# SKRIPT PRO HROMADNOU EXTRAKCI DAT Z SDO (PDF)
-
-library(pdftools)
-library(stringr)
-library(dplyr)
-library(tidyr)
-library(readr) # Pro ukládání CSV
-
-# === NASTAVENÍ CEST ===
-input_dir <- "Input/Data_test"
-output_dir <- "Outputs/Data"
-
-# Vytvoření výstupní složky, pokud neexistuje
-if (!dir.exists(output_dir)) {
-  dir.create(output_dir, recursive = TRUE)
-}
-
-
 # 1. POMOCNÉ FUNKCE (JÁDRO EXTRAKCE)
-
-
 # --- Funkce pro extrakci Stanovišť ---
 extract_stanoviste <- function(text, sitecode) {
   # Rozdělení na bloky. (?=...) je lookahead, aby zůstal oddělovač zachován
@@ -264,7 +244,7 @@ final_druhy <- bind_rows(all_druhy)
 
 # Uložení Stanovišť
 if (nrow(final_stanoviste) > 0) {
-  out_path_s <- file.path(output_dir, "souhrn_stanoviste.csv")
+  out_path_s <- file.path(temp_dir, "souhrn_stanoviste.csv")
   
   # Používáme write.csv z base R, protože umí fileEncoding.
   # row.names = FALSE, aby se nevytvořil sloupec s čísly řádků.
@@ -277,7 +257,7 @@ if (nrow(final_stanoviste) > 0) {
 
 # Uložení Druhů
 if (nrow(final_druhy) > 0) {
-  out_path_d <- file.path(output_dir, "souhrn_druhy.csv")
+  out_path_d <- file.path(temp_dir, "souhrn_druhy.csv")
   
   write.csv(final_druhy, out_path_d, row.names = FALSE, fileEncoding = "Windows-1250")
   
