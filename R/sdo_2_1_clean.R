@@ -18,7 +18,11 @@ druhy_clean <- druhy_raw %>%
     ) %>%
   dplyr::rowwise() %>%
   dplyr::mutate(
-    pop_prum = mean(c(pop_min, pop_max), na.rm = TRUE)
+    pop_prum = mean(c(pop_min, pop_max), na.rm = TRUE),
+    pop_jednotka = dplyr::case_when(
+      pop_jednotka == "-" ~ NA_character_,
+      TRUE ~ pop_jednotka
+    )
   )
 
 stanoviste_clean <- stanoviste_raw %>%
