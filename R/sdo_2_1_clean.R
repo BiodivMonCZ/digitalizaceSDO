@@ -30,7 +30,8 @@ stanoviste_clean <- stanoviste_raw %>%
   dplyr::mutate(
     poznamka = str_remove(stav_text, "\\* označuje prioritní druh") %>% 
       str_remove_all(., "\\n") %>%
-      str_squish()
+      str_squish(),
+    stav_cis = NA
   ) 
 
 # Uložení Stanovišť
