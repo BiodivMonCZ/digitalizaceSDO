@@ -8,6 +8,7 @@ library(readr) # Pro ukládání CSV
 
 # === NASTAVENÍ CEST ===
 input_dir <- "Input/Data_test"
+input_dir <- "C:/Users/jonas.gaigr/Documents/digitalizaceSDOdata"
 temp_dir <- "Input/Temp"
 output_dir <- "Outputs/Data"
 
