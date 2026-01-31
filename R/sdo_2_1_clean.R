@@ -23,7 +23,8 @@ druhy_clean <- druhy_raw %>%
       pop_jednotka == "-" ~ NA_character_,
       TRUE ~ pop_jednotka
     )
-  )
+  ) %>%
+  dplyr::distinct()
 
 stanoviste_clean <- stanoviste_raw %>%
   dplyr::select(-nazev_predmetu) %>%
@@ -32,7 +33,8 @@ stanoviste_clean <- stanoviste_raw %>%
       str_remove_all(., "\\n") %>%
       str_squish(),
     stav_cis = NA
-  ) 
+  ) %>%
+  dplyr::distinct()
 
 # Uložení Stanovišť
 if (nrow(stanoviste_clean) > 0) {
