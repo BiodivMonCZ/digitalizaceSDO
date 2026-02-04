@@ -24,6 +24,18 @@ druhy_clean <- druhy_raw %>%
       TRUE ~ pop_jednotka
     )
   ) %>%
+  dplyr::rename(
+    sdf_code = feature_code
+  ) %>%
+  dplyr::left_join(
+    .,
+    sites_subjects %>%
+      dplyr::select(
+        feature_code,
+        sdf_code
+      ),
+    by = c("sdf_code" = "sdf_code")
+  )
   dplyr::distinct()
 
 stanoviste_clean <- stanoviste_raw %>%
