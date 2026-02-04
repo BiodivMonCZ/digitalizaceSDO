@@ -20,4 +20,4 @@ if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
 }
 
-
+sites_subjects <- rn2kcz::load_n2k_sites()
