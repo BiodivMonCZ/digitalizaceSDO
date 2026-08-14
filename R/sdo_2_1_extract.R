@@ -58,32 +58,48 @@ extract_druhy_robust <- function(text, sitecode) {
     
     kod <- str_match(block, "Kód předmětu ochrany:\\s*(\\d+)")[, 2]
     
-    # B) POPULACE (Hledáme v širším kontextu 150 znaků, abychom chytili čísla na dalším řádku)
+    # B) POPULACE (Hledáme v širším kontextu 250 znaků, abychom chytili tabulku
+    # Min/Max/Jednotka, která se v PDF často zalamuje na další řádek)
     # (?s) zapíná "dotall" - tečka bere i nový řádek
-    pop_chunk_match <- str_match(block, "(?s)(stálá|rozmnožující se|zimující)(.{0,150})")
-    
+    pop_chunk_match <- str_match(block, "(?s)(stálá|rozmnožující se|zimující)(.{0,250})")
+
     pop_typ <- NA; pop_min <- NA; pop_max <- NA; pop_jednotka <- NA
-    
+
     if (!is.na(pop_chunk_match[1,1])) {
       pop_typ_raw <- pop_chunk_match[1,2]
       pop_context <- pop_chunk_match[1,3] # Text za typem populace
-      
+
       # Typ
       if (grepl("stálá", pop_typ_raw)) pop_typ <- "stálá"
       else if (grepl("zimující", pop_typ_raw)) pop_typ <- "zimující"
       else pop_typ <- "rozmnožující se"
-      
-      # Čísla (min/max)
-      nums <- extract_numbers_from_text(pop_context)
-      if (!is.null(nums)) {
-        if (length(nums) >= 1) pop_min <- nums[1]
-        if (length(nums) >= 2) pop_max <- nums[2] # Pokud jsou dvě čísla, druhé je max
-        # Pokud je jen jedno číslo, necháme ho v pop_min
+
+      # Min/Max/Jednotka: v tabulce SDO jde o trojici sloupců přímo za sebou
+      # (např. "20 130 jedinci" nebo, pokud stav nebyl vyhodnocen, "-  -  -").
+      # Nelze prostě vzít první dvě čísla v okolním textu - ta často patří do
+      # sloupců "Podíl populace" nebo do prahu kategorie ("p > X %"), takže by
+      # se např. z "-  -  -  běžný  2 %  p > 0 %" chybně vyčetlo min = 2, max = 0.
+      minmax_match <- str_match(
+        pop_context,
+        "(-|[0-9]+(?:[.,][0-9]+)?)\\s+(-|[0-9]+(?:[.,][0-9]+)?)\\s+(-|[\\p{L}][\\p{L}.]*)"
+      )
+
+      if (!is.na(minmax_match[1, 1])) {
+        min_raw <- minmax_match[1, 2]
+        max_raw <- minmax_match[1, 3]
+        jednotka_raw <- minmax_match[1, 4]
+
+        pop_min <- if (min_raw == "-") NA_real_ else as.numeric(gsub(",", ".", min_raw))
+        pop_max <- if (max_raw == "-") NA_real_ else as.numeric(gsub(",", ".", max_raw))
+        if (jednotka_raw != "-") pop_jednotka <- jednotka_raw
       }
-      
-      # Jednotka (hledáme v kontextu slova)
-      units <- str_extract(pop_context, "(jedinců|jedinci|párů|páry|ex\\.|trsy|trsů|kvadrat|mikropopulace)")
-      if (!is.na(units)) pop_jednotka <- units
+
+      # Fallback pro jednotku, pokud ji trojice Min/Max/Jednotka nezachytila
+      # (např. víceslovná jednotka nebo neobvyklé zalomení tabulky)
+      if (is.na(pop_jednotka)) {
+        units <- str_extract(pop_context, "(jedinců|jedinci|párů|páry|ex\\.|trsy|trsů|kvadrat|mikropopulace)")
+        if (!is.na(units)) pop_jednotka <- units
+      }
     }
     
     # C) ATRIBUTY (Zachovalost, Izolace, Hodnocení)

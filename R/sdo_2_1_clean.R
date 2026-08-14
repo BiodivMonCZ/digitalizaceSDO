@@ -27,6 +27,9 @@ druhy_clean <- druhy_raw %>%
   dplyr::rename(
     sdf_code = feature_code
   ) %>%
+  dplyr::mutate(
+    sdf_code = as.character(sdf_code)
+  ) %>%
   dplyr::left_join(
     .,
     sites_subjects %>%
@@ -35,8 +38,76 @@ druhy_clean <- druhy_raw %>%
         sdf_code
       ),
     by = c("sdf_code" = "sdf_code")
-  )
+  ) %>%
   dplyr::distinct()
+
+# === NDOP: maximální abundance (od roku 2000 dosud) dle nálezové databáze AOPK ===
+# Logika navazuje na https://github.com/BiodivMonCZ/host_naturecz (R/02_druhy/21_1_n2k_druhy_akce.R):
+# nález je platný, pokud jednotka POCITANO odpovídá jednotce definované v limitech
+# (zde: pop_jednotka z SDO). U nálezů starších roku 2020 se navíc jako platné
+# akceptuje i POCITANO = "jedinci" bez ohledu na jednotku, protože starší data
+# jednotku nerozlišovala tak důsledně.
+rok_od <- 2000
+rok_hranice_jedinci <- 2020
+
+limity <- druhy_clean %>%
+  dplyr::transmute(
+    sitecode,
+    druh,
+    jednotka = str_squish(pop_jednotka)
+  ) %>%
+  dplyr::filter(!is.na(jednotka), jednotka != "") %>%
+  dplyr::distinct()
+
+nalezy_raw <- readr::read_delim(
+  nalezy_path,
+  delim = ";",
+  locale = readr::locale(encoding = "Windows-1250"),
+  col_types = readr::cols(.default = "c"),
+  progress = FALSE
+)
+
+nalezy_clean <- nalezy_raw %>%
+  dplyr::filter(is.na(NEGATIVNI) | NEGATIVNI == "0") %>%
+  dplyr::transmute(
+    druh = DRUH,
+    sitecode = str_trim(str_extract(EVL, "^[^:]+")),
+    rok = lubridate::year(lubridate::dmy(DATUM_OD)),
+    pocitano = str_squish(POCITANO),
+    pocet = suppressWarnings(as.numeric(POCET))
+  ) %>%
+  dplyr::filter(!is.na(rok), rok >= rok_od, !is.na(pocet))
+
+# Ověření jednotky dle limitů (+ výjimka "jedinci" pro nálezy < rok_hranice_jedinci)
+nalezy_valid <- nalezy_clean %>%
+  dplyr::mutate(zaznam_id = dplyr::row_number()) %>%
+  dplyr::left_join(limity, by = c("druh", "sitecode"), relationship = "many-to-many") %>%
+  dplyr::group_by(zaznam_id) %>%
+  dplyr::summarise(
+    druh = dplyr::first(druh),
+    sitecode = dplyr::first(sitecode),
+    rok = dplyr::first(rok),
+    pocitano = dplyr::first(pocitano),
+    pocet = dplyr::first(pocet),
+    jednotka_ok = any(pocitano == jednotka, na.rm = TRUE) |
+      (dplyr::first(rok) < rok_hranice_jedinci & dplyr::first(pocitano) == "jedinci"),
+    .groups = "drop"
+  ) %>%
+  dplyr::filter(jednotka_ok)
+
+ndop_max_abundance <- nalezy_valid %>%
+  dplyr::group_by(druh, sitecode) %>%
+  dplyr::summarise(
+    ndop_pop_max = max(pocet, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Napojení maximální abundance a návrh hodnoty (vyšší z pop_prum a ndop_pop_max)
+druhy_clean <- druhy_clean %>%
+  dplyr::left_join(ndop_max_abundance, by = c("druh", "sitecode")) %>%
+  dplyr::mutate(
+    navrzena_hodnota = pmax(pop_prum, ndop_pop_max, na.rm = TRUE)
+  )
 
 stanoviste_clean <- stanoviste_raw %>%
   dplyr::select(-nazev_predmetu) %>%

@@ -5,12 +5,16 @@ library(stringr)
 library(dplyr)
 library(tidyr)
 library(readr) # Pro ukládání CSV
+library(lubridate) # Pro parsování dat z nálezové databáze
 
 # === NASTAVENÍ CEST ===
 input_dir <- "Input/Data_test"
 input_dir <- "C:/Users/jonas.gaigr/Documents/digitalizaceSDOdata"
 temp_dir <- "Input/Temp"
 output_dir <- "Outputs/Data"
+
+# Export nálezové databáze AOPK (ND), použitý pro dopočet maximální abundance
+nalezy_path <- "C:/Users/jonas.gaigr/Documents/host_data/evl_data_export_20250408.csv"
 
 # Vytvoření výstupní složky, pokud neexistuje
 if (!dir.exists(temp_dir)) {
