@@ -44,11 +44,16 @@ druhy_clean <- druhy_raw %>%
 # === NDOP: maximální abundance (od roku 2000 dosud) dle nálezové databáze AOPK ===
 # Logika navazuje na https://github.com/BiodivMonCZ/host_naturecz (R/02_druhy/21_1_n2k_druhy_akce.R):
 # nález je platný, pokud jednotka POCITANO odpovídá jednotce definované v limitech
-# (zde: pop_jednotka z SDO). U nálezů starších roku 2020 se navíc jako platné
-# akceptuje i POCITANO = "jedinci" bez ohledu na jednotku, protože starší data
+# (zde: pop_jednotka z SDO). Přednost mají vždy nálezy s přesnou shodou jednotky -
+# u druhu a lokality, kde takový nález existuje, se náhradní jednotky vůbec
+# neuvažují. Teprve pokud pro danou dvojici druh x lokalita neexistuje žádný
+# nález s přesnou shodou jednotky, použijí se u nálezů starších roku
+# rok_hranice_jedinci (tj. z roku 2019 a dříve) jako náhrada i jiná dospělá
+# vývojová stadia (POCITANO %in% pocitano_nahradni), protože starší data
 # jednotku nerozlišovala tak důsledně.
 rok_od <- 2000
 rok_hranice_jedinci <- 2020
+pocitano_nahradni <- c("jedinci", "adulti")
 
 limity <- druhy_clean %>%
   dplyr::transmute(
@@ -78,8 +83,10 @@ nalezy_clean <- nalezy_raw %>%
   ) %>%
   dplyr::filter(!is.na(rok), rok >= rok_od, !is.na(pocet))
 
-# Ověření jednotky dle limitů (+ výjimka "jedinci" pro nálezy < rok_hranice_jedinci)
-nalezy_valid <- nalezy_clean %>%
+# Ověření jednotky dle limitů (přesná shoda) + náhradní dospělá stadia pro nálezy
+# starší rok_hranice_jedinci, použitá jen pokud přesná shoda pro danou dvojici
+# druh x lokalita chybí
+nalezy_klasifikace <- nalezy_clean %>%
   dplyr::mutate(zaznam_id = dplyr::row_number()) %>%
   dplyr::left_join(limity, by = c("druh", "sitecode"), relationship = "many-to-many") %>%
   dplyr::group_by(zaznam_id) %>%
@@ -89,16 +96,27 @@ nalezy_valid <- nalezy_clean %>%
     rok = dplyr::first(rok),
     pocitano = dplyr::first(pocitano),
     pocet = dplyr::first(pocet),
-    jednotka_ok = any(pocitano == jednotka, na.rm = TRUE) |
-      (dplyr::first(rok) < rok_hranice_jedinci & dplyr::first(pocitano) == "jedinci"),
+    presna_shoda = any(pocitano == jednotka, na.rm = TRUE),
     .groups = "drop"
   ) %>%
-  dplyr::filter(jednotka_ok)
+  dplyr::mutate(
+    nahradni_shoda = rok < rok_hranice_jedinci & pocitano %in% pocitano_nahradni
+  ) %>%
+  dplyr::filter(presna_shoda | nahradni_shoda)
+
+# Přednost přesné shodě jednotky: pokud pro dvojici druh x lokalita existuje
+# alespoň jeden nález s přesnou shodou, náhradní nálezy se zahodí
+nalezy_valid <- nalezy_klasifikace %>%
+  dplyr::group_by(druh, sitecode) %>%
+  dplyr::filter(presna_shoda | !any(presna_shoda)) %>%
+  dplyr::ungroup()
 
 ndop_max_abundance <- nalezy_valid %>%
   dplyr::group_by(druh, sitecode) %>%
   dplyr::summarise(
     ndop_pop_max = max(pocet, na.rm = TRUE),
+    ndop_pocitano = pocitano[which.max(pocet)],
+    ndop_pocet_zaznamu = dplyr::n(),
     .groups = "drop"
   )
 
@@ -106,7 +124,7 @@ ndop_max_abundance <- nalezy_valid %>%
 druhy_clean <- druhy_clean %>%
   dplyr::left_join(ndop_max_abundance, by = c("druh", "sitecode")) %>%
   dplyr::mutate(
-    navrzena_hodnota = pmax(pop_prum, ndop_pop_max, na.rm = TRUE)
+    navrzena_hodnota = floor(pmax(pop_prum, ndop_pop_max, na.rm = TRUE))
   )
 
 stanoviste_clean <- stanoviste_raw %>%
